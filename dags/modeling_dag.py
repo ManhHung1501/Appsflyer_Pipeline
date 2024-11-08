@@ -74,14 +74,14 @@ with DAG(
                                                     'game_code': game_code,
                                                     'config': config
                                                 })
-            # load_fact_vip_level_task = PythonOperator(task_id=f"load_fact_vip_level",
-            #                                     python_callable=increamental_load_modeling_table,
-            #                                     op_kwargs={
-            #                                         'target_db': target_db,
-            #                                         'target_table': 'fact_vip_level',
-            #                                         'game_code': game_code,
-            #                                         'config': config
-            #                                     })
+            load_fact_vip_level_task = PythonOperator(task_id=f"load_fact_vip_level",
+                                                python_callable=increamental_load_modeling_table,
+                                                op_kwargs={
+                                                    'target_db': target_db,
+                                                    'target_table': 'fact_vip_level',
+                                                    'game_code': game_code,
+                                                    'config': config
+                                                })
             load_COHORT_MKT_task = PythonOperator(task_id=f"load_COHORT_MKT",
                                                 python_callable=increamental_load_modeling_table,
                                                 op_kwargs={
@@ -110,7 +110,7 @@ with DAG(
             load_config >> [load_fact_login_task, load_fact_transaction_task, load_install_task, load_COHORT_MKT_task, load_fact_device_task, load_partners_by_date_report_task]
             load_fact_login_task >> load_dim_user_task
             load_fact_transaction_task >> load_dim_user_task
-            # load_fact_transaction_task >> load_fact_vip_level_task
+            load_fact_transaction_task >> load_fact_vip_level_task
                     
         game_task_groups.append(task_group)
 
