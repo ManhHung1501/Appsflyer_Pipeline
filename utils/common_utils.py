@@ -19,7 +19,6 @@ def get_evt_name(type_report: str) -> str:
         return "uninstall"
     return "install"
 
-
 def rename_columns(df: DataFrame) -> DataFrame:
     """
     Rename columns in a DataFrame by standardizing their names.
@@ -70,6 +69,7 @@ def parse_nested_json(json_string: str, keys: list):
     except json.JSONDecodeError:
         print(f"Error: json string not valid: {' '.join([str(elem) for elem in keys])}|{json_string}")
         return ""
+
 
 @udf(returnType=StringType())
 def get_carrier(value: str) -> str:

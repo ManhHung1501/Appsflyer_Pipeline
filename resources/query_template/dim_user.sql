@@ -12,6 +12,36 @@ WITH media_app AS (
         '{game_code}' as game_code
     FROM da_cdp_{game_code}.appsflyer_user_registration
 ),
+media_regist as (
+    SELECT
+        media_app.*
+    FROM media_app
+    where event_name='af_registration'
+),
+media_other_event as (
+    SELECT
+        media_app.*
+    FROM media_app
+    where event_name<>'af_registration'
+),
+media_other_event_remove_duplicate as (
+    SELECT
+        DISTINCT
+        user_id,
+        first_value(media_source) over (PARTITION by user_id,game_code order by event_time asc) as media_source,
+        first_value(campaign) over (PARTITION by user_id,game_code order by event_time asc) as campaign,
+        first_value(adset) over (PARTITION by user_id,game_code order by event_time asc) as adset,
+        first_value(platform) over (PARTITION by user_id,game_code order by event_time asc) as platform,
+        first_value(event_name) over (PARTITION by user_id,game_code order by event_time asc) as event_name,
+        first_value(partner) over (PARTITION by user_id,game_code order by event_time asc) as partner,
+        game_code
+    FROM media_other_event
+),
+media_join_login as (
+    SELECT user_id, media_source, campaign, adset, platform, event_name,partner, game_code  from media_regist
+    UNION ALL
+    SELECT * from media_other_event_remove_duplicate
+),
 dual_event as (
     SELECT 
         user_id, game_code,
@@ -25,7 +55,7 @@ dual_event as (
         MAX(IF(event_name<>'af_registration', platform, NULL)) as os_normal,
         MAX(IF(event_name='af_registration', partner, NULL)) as partner_registration,
         MAX(IF(event_name<>'af_registration', partner, NULL)) as partner_normal
-    FROM media_app
+    FROM media_join_login
     GROUP BY user_id, game_code
 ),
 media as (

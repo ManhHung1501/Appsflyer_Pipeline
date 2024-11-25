@@ -13,9 +13,10 @@ def connect_clickhouse():
     return client
 
 
-def generate_create_table_query(df, target_db: str, target_table: str, engine: str, primary_column: str = None) -> str:
+def generate_create_table_query(df, target_db: str, target_table: str, engine: str ="MergeTree", primary_column: str = None) -> str:
     # Map pandas dtypes to ClickHouse data types
     dtype_mapping = {
+        'uint64': 'UInt64',
         'int64': 'UInt64',
         'int32': 'Int32',
         'float64': 'Float64',
@@ -109,4 +110,29 @@ def load_data_to_clickhouse(df: DataFrame, target_db: str, target_tbl: str, engi
          .save())
     except Exception as e:
         raise Exception(f"Load data to Clickhouse table {target_db}.{target_tbl} get error: {e}")
-        
+
+def adjust_clickhouse_table_schema(clickhouse_client: Client, df, target_db: str, target_tbl: str):
+    dtype_mapping = {
+        'uint64': 'UInt64',
+        'int64': 'UInt64',
+        'int32': 'Int32',
+        'float64': 'Float64',
+        'object': 'String',
+        'datetime64[ns]': 'DateTime',
+        'bool': 'UInt8',
+    }
+
+    # Get current ClickHouse table schema
+    result = clickhouse_client.query_dataframe(f"DESCRIBE TABLE {target_db}.{target_tbl}")
+    existing_columns = {row['name'] for _,row in result.iterrows()}
+    
+    # Identify missing columns in ClickHouse and add them
+    for column in df.columns:
+        if column not in existing_columns:
+            # Map Pandas dtype to ClickHouse dtype (basic mapping)
+            dtype = str(df[column].dtype)
+            if dtype == 'datetime64[ns]' and (df[column].dt.time == datetime.time(0, 0)).all():
+                clickhouse_type = 'Date' 
+            else:
+                clickhouse_type = dtype_mapping.get(str(dtype), 'String')
+            clickhouse_client.execute(f"ALTER TABLE {target_db}.{target_tbl} ADD COLUMN {column} Nullable({clickhouse_type})")       

@@ -1,5 +1,7 @@
 import logging
 import requests
+import csv
+import io
 from datetime import datetime, timedelta
 from config.appsflyer import appsflyer_token
 from config.minio import s3_cdp_bucket
@@ -115,15 +117,38 @@ def ingest_appsflyer_agg_data_api(
     logger.info(f"Request success from appsflyer")
 
     # Write data to MinIO
-    object_key = f"cdp/stage/{game_code}/appsflyer/{platform}/evt_name={type_report}/{app_id}-{type_report}-from-{two_days_ago}-to-{date}.csv"
-
     s3_client = connect_minio()
+
     # Check if bucket exist or not
     check_and_create_bucket(s3_client, s3_cdp_bucket)
 
-    s3_client.put_object(Bucket=s3_cdp_bucket,
-                         Key=object_key,
-                         Body=response.text.encode('utf-8'),
-                         ContentType='text/csv')
+     # Process and split data by date
+    csv_data = response.text
+    csv_reader = csv.DictReader(io.StringIO(csv_data))
 
-    logger.info(f"Complete ingest {type_report} to MinIO")
+    data_by_date = {}
+    for row in csv_reader:
+        row_date = row['Date'] 
+        if row_date not in data_by_date:
+            data_by_date[row_date] = []
+        data_by_date[row_date].append(row)
+
+    # Write each date's data to a separate file in MinIO
+    for row_date, rows in data_by_date.items():
+        output = io.StringIO()
+        csv_writer = csv.DictWriter(output, fieldnames=csv_reader.fieldnames)
+        csv_writer.writeheader()
+        csv_writer.writerows(rows)
+
+        # Define the object key with the specific date
+        prefix = f"cdp/stage/{game_code}/appsflyer/{platform}/evt_name={type_report}"
+        object_key = f"{prefix}/{app_id}-{type_report}-{row_date}.csv"
+
+        s3_client.put_object(
+            Bucket=s3_cdp_bucket,
+            Key=object_key,
+            Body=output.getvalue().encode('utf-8'),
+            ContentType='text/csv'
+        )
+
+        logger.info(f"Uploaded data for {row_date} to MinIO with key: {object_key}")

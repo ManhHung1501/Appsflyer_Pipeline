@@ -28,9 +28,14 @@ def trans_partners_by_date(config:dict, platform: str, date: str, game_code: str
                                     s3_access_key,
                                     s3_secret_key)
 
-    two_days_ago = (datetime.strptime(date, '%Y-%m-%d') - timedelta(days=2)).strftime('%Y-%m-%d')
-    file_path = f"s3a://{s3_cdp_bucket}/cdp/stage/{game_code}/appsflyer/{platform}/evt_name=partners_by_date_report/{app_id}-partners_by_date_report-from-{two_days_ago}-to-{date}.csv"
-    logging.info(f"file_path: {file_path}")
+    prefix = f"s3a://{s3_cdp_bucket}/cdp/stage/{game_code}/appsflyer/{platform}/evt_name=partners_by_date_report"
+    date_range = [(datetime.strptime(date, '%Y-%m-%d') - timedelta(days=i)).strftime('%Y-%m-%d') for i in range(3)]
+    file_paths = [
+        f"{prefix}/{app_id}-partners_by_date_report-{date}.csv"
+        for date in date_range
+    ]
+    for f in file_paths:
+        logging.info(f"file_path: {f}")
 
     # Read data from minIO by spark
     # Define the schema for partners_by_date
@@ -53,7 +58,7 @@ def trans_partners_by_date(config:dict, platform: str, date: str, game_code: str
         StructField("ARPU", FloatType(), True),
         StructField("Average eCPI", FloatType(), True)
     ])
-    data_frame = read_data_csv(spark=spark, path=file_path, schema=partners_by_date_schema).select(AggReportFields.partners_by_date)
+    data_frame = read_data_csv(spark=spark, path=file_paths, schema=partners_by_date_schema).select(AggReportFields.partners_by_date)
     data_frame = data_frame.withColumnRenamed('Date', 'report_date') \
                             .withColumnRenamed('Agency/PMD (af_prt)', 'partner') \
                             .withColumnRenamed('Loyal Users/Installs', 'loyal_users_installs_rate') \
@@ -89,7 +94,7 @@ def trans_partners_by_date(config:dict, platform: str, date: str, game_code: str
     load_data_to_clickhouse(df=df_final,target_db=target_db, target_tbl=target_tbl)
     spark.stop()
 
-    clickhouse_client.execute(f"OPTIMIZE TABLE {target_db}.{target_tbl} DEDUPLICATE BY {primary_column}")
+    clickhouse_client.execute(f"OPTIMIZE TABLE {target_db}.{target_tbl} FINAL")
 
 if __name__ == "__main__":
     import sys

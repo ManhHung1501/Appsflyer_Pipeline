@@ -22,7 +22,7 @@ with DAG(
     dag_id='Game_Master_DAG',
     default_args=default_args,
     tags=["Game", "Master_DAG"],
-    schedule_interval="0 0 * * *",
+    schedule_interval="0 2 * * *",
     catchup=False,
     max_active_tasks=5,
     max_active_runs=1  
@@ -89,15 +89,21 @@ with DAG(
             wait_for_completion=True,
         )
 
-    with TaskGroup(group_id = f"Modeling_Data_Group") as modeling_task_group:
-        trigger_modeling= TriggerDagRunOperator(
-            task_id='load_data_to_modeling_table',
-            trigger_dag_id='Game_Modeling_DAG',
-            conf={
-                'start_date': "{{ ti.xcom_pull(task_ids='load_config', key='start_date') }}",
-            },
-            wait_for_completion=True,
-        )
+
+    trigger_modeling= TriggerDagRunOperator(
+        task_id='load_data_to_modeling_table',
+        trigger_dag_id='Game_Modeling_DAG',
+        conf={
+            'start_date': "{{ ti.xcom_pull(task_ids='load_config', key='start_date') }}",
+        },
+        wait_for_completion=True,
+    )
+
+    trigger_report = TriggerDagRunOperator(
+        task_id='generate_report_table',
+        trigger_dag_id='Generate_Report_DAG',
+        wait_for_completion=False,
+    )
 
     # Trigger all DAGs in parallel
     load_config_task >> [trigger_ingest_appsflyer, trigger_ingest_funzy, trigger_ingest_locker_app, trigger_ingest_locker_web]
@@ -105,3 +111,4 @@ with DAG(
     trigger_ingest_appsflyer >> trigger_transformation_appsflyer
     trigger_transformation_appsflyer >> trigger_modeling
     trigger_ingest_funzy >> trigger_modeling
+    trigger_modeling >> trigger_report

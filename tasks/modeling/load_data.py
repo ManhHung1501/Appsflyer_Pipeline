@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from utils.clickhouse_utils import connect_clickhouse
 from utils.common_utils import project_dir
 from constants.modeling import table
-
+import time
 
 def increamental_load_modeling_table(target_db:str, target_table:str, game_code:str, config: dict, **context):
         date = context["ti"].xcom_pull(task_ids="load_config", key="start_date")
@@ -38,15 +38,13 @@ def increamental_load_modeling_table(target_db:str, target_table:str, game_code:
             logging.info('Create update view success!')
 
             target_tbl_name = f'{target_db}.{target_table}' 
-            if date == 'all':
-                clickhouse_client.execute(f"TRUNCATE TABLE {target_tbl_name}")
 
             clickhouse_client.execute(f"INSERT INTO {target_tbl_name} ({order_col}) SELECT {order_col} FROM {view_name}")
             logging.info(f'Update data to modeling table {target_tbl_name} success!')
 
             # Deduplicate after ingest data from funzy
-            primary_column = table[target_table]['primary_key']
-            clickhouse_client.execute(f"OPTIMIZE TABLE {target_tbl_name} DEDUPLICATE BY {primary_column}")
+            clickhouse_client.execute(f"OPTIMIZE TABLE {target_tbl_name} FINAL")
+
             logging.info(f'Deduplication success!')
 
 

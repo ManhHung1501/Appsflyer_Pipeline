@@ -1,3 +1,4 @@
+import logging
 import boto3
 from botocore.exceptions import ClientError
 from config.minio import s3_endpoint, s3_access_key, s3_secret_key, s3_cdp_bucket
@@ -29,7 +30,7 @@ def check_and_create_bucket(s3_client,bucket_name):
 def read_text_file_minio(object_key):
     try:
         minio_client = connect_minio()
-        object_key  = 'ad'
+
         # Get the object from MinIO
         response = minio_client.get_object(Bucket=s3_cdp_bucket, Key=object_key)
         
@@ -37,4 +38,19 @@ def read_text_file_minio(object_key):
         file_content = response['Body'].read().decode('utf-8') 
         return file_content
     except Exception as e:
-        print(f"Read file from {object_key}Failed. Error occurred: {e}")
+        print(f"Read file from {object_key} Failed. Error occurred: {e}")
+
+def list_txt_files(prefix_path=''):
+    minio_client = connect_minio()
+    try:
+        # List all objects with the specified prefix
+        response = minio_client.list_objects(Bucket=s3_cdp_bucket, Prefix=prefix_path)
+        if 'Contents' in response:
+            # Filter and print only .txt files
+            txt_files = [obj['Key'] for obj in response['Contents'] if obj['Key'].endswith('.txt')]
+            return txt_files
+        else:
+            return []
+    except Exception as e:
+        print(f"Lst file from {prefix_path} Failed. Error occurred: {e}")
+        return []

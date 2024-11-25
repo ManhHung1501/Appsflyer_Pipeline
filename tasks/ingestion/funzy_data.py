@@ -25,6 +25,7 @@ def incremental_ingest_funzy_data(
     if source_table == 'Vw_Account_Login':
         excution_year = date.split('-')[0]
         source_table = f'Vw_Account_Login_{excution_year}'
+        # source_table = f'Vw_Account_Login_2023'
     
     # Init connection to sql server
     funzy_db_con = connect_funzy_db()
@@ -49,7 +50,7 @@ def incremental_ingest_funzy_data(
     clickhouse_client.insert_dataframe(f"INSERT INTO {target_db}.{target_table} VALUES", df)
 
     # Deduplicate after ingest data from funzy
-    clickhouse_client.execute(f"OPTIMIZE TABLE {target_db}.{target_table} DEDUPLICATE BY {primary_column}")
+    clickhouse_client.execute(f"OPTIMIZE TABLE {target_db}.{target_table} FINAL")
     
     logging.info(f'Complete Load data to Clickhouse in {time.time() - start_load}')
     logging.info("Data successfully loaded into ClickHouse.")

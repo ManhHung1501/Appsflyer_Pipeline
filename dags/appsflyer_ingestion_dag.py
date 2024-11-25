@@ -87,15 +87,15 @@ with DAG(
                                                         'config': config
                                                     })
                 
-            crawl_cohort_data_task = PythonOperator(task_id=f"crawl_cohort_data",
-                                                    python_callable=crawl_cohort_data,
-                                                    op_kwargs={
-                                                        'game_config': config,
-                                                        'target_db': f'da_cdp_{game_code}', 
-                                                        'target_table': 'COHORT_MKT', 
-                                                        'engine': 'MergeTree',
-                                                        'primary_column': 'cohort_day,media_source,campaign,adset_name'
-                                                    })
+            # crawl_cohort_data_task = PythonOperator(task_id=f"crawl_cohort_data",
+            #                                         python_callable=crawl_cohort_data,
+            #                                         op_kwargs={
+            #                                             'game_config': config,
+            #                                             'target_db': f'da_cdp_{game_code}', 
+            #                                             'target_table': 'COHORT_MKT', 
+            #                                             'engine': 'MergeTree',
+            #                                             'primary_column': 'cohort_day,media_source,campaign,adset_name'
+            #                                         })
             game_task_groups.append(task_group)
 
     load_config >> game_task_groups

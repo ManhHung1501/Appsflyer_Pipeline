@@ -64,7 +64,6 @@ with DAG(
         config_dumps = json.dumps(config)
         if config['is_web'] == 1:
             with TaskGroup(group_id = f"Transform_Data_Locker_{game_code}") as task_group:
-                # previous_task = None
                 for python_file in python_files:
                     task_id = f"spark_submit_{os.path.splitext(python_file)[0]}"
                     spark_submit_task = SparkSubmitOperator(task_id=task_id,
@@ -80,9 +79,6 @@ with DAG(
                                                         verbose=False,
                                                         execution_timeout=timedelta(hours=2),
                                                     )
-                    # if previous_task:
-                    #     previous_task >> spark_submit_task
-                    # previous_task = spark_submit_task
                 
             game_task_groups.append(task_group)
 

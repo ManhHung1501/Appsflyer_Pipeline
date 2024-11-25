@@ -56,6 +56,7 @@ def trans_af_purchase(config:dict, platform: str, date: str, game_code: str):
                       .withColumn("package_id", parse_nested_json_udf(col("event_value"), lit("af_package_id")))
                       .withColumn("order_id", parse_nested_json_udf(col("event_value"), lit("af_order_id")))
                       .fillna(""))
+
         # Save data to clickhouse
         logging.info(f'Loading data to Clickhouse ...')
         load_data_to_clickhouse(df=df_final,target_db=f"da_cdp_{game_code}", target_tbl="appsflyer_purchase")

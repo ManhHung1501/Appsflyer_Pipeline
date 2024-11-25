@@ -44,40 +44,31 @@ def spark_s3_session_with_delta_pip(app_name: str, s3_endpoint: str, s3_access_k
         logging.error(f"Spark session initialization failed. Error: {e}")
         return None
     
-def read_data_csv(spark: SparkSession, path: str, schema: Optional[StructType] = None) -> DataFrame:
+def read_data_csv(spark: SparkSession, path, schema: Optional[StructType] = None) -> DataFrame:
     try:
-        if "s3a://" in path:
-            if schema ==None:
-                data = spark.read.csv(
-                    path=path,
-                    header=True,
-                    inferSchema=True,
-                    encoding="UTF-8",
-                    quote='"',
-                    escape='"',
-                    multiLine=True,
-                    recursiveFileLookup=True,
-                )
-            else:
-                data = spark.read.csv(
-                    path=path,
-                    header=True,
-                    schema=schema,
-                    encoding="UTF-8",
-                    quote='"',
-                    escape='"',
-                    multiLine=True,
-                    recursiveFileLookup=True,
-                )
-        else:
+        if schema ==None:
             data = spark.read.csv(
-                f"file://{path}",
+                path=path,
                 header=True,
                 inferSchema=True,
+                encoding="UTF-8",
                 quote='"',
                 escape='"',
                 multiLine=True,
+                recursiveFileLookup=True,
             )
+        else:
+            data = spark.read.csv(
+                path=path,
+                header=True,
+                schema=schema,
+                encoding="UTF-8",
+                quote='"',
+                escape='"',
+                multiLine=True,
+                recursiveFileLookup=True,
+            )
+       
         return data
     except Exception as e:
         logging.error(f"Read data from {path} get error:", e)

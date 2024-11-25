@@ -33,7 +33,6 @@ with DAG(
     max_active_runs=1  
 ) as dag:
     #SPARK JARS
-    # jars = "org.apache.hadoop:hadoop-aws:3.3.4,com.amazonaws:aws-java-sdk:1.12.757,io.delta:delta-core_2.12:2.1.1"
     jars_path='hdfs:////spark/jars/delta-core_2.12-2.1.1.jar'
 
     # SPARK CONF

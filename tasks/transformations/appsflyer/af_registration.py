@@ -1,5 +1,4 @@
 import logging
-import functools
 from delta import DeltaTable
 from pyspark.sql import Window
 from pyspark.sql.functions import input_file_name, col, when, row_number
@@ -7,7 +6,7 @@ from pyspark.sql.types import StringType
 from config.minio import s3_access_key,s3_cdp_bucket,s3_endpoint,s3_secret_key
 from constants.appsflyer import AppsflyerFields
 from utils.common_utils import project_dir, rename_columns, get_region, get_carrier, get_state, get_country, \
-    get_character_id_for_all, get_user_id_for_all
+    get_character_id_for_all, get_user_id_for_all, cast_columns_to_string
 from utils.spark_utils import spark_s3_session_with_delta_pip, read_data_csv, log_files_to_read
 from utils.clickhouse_utils import load_data_to_clickhouse
 
@@ -31,15 +30,18 @@ def trans_af_registration(config:dict, date: str, game_code: str):
     data_frame = read_data_csv(spark=spark, path=file_pattern).select(AppsflyerFields.user_fields)
     
     # Transform data
-    df_renamed = rename_columns(data_frame).withColumn("user_id", get_user_id_for_all(col("event_value"), col('platform'))) \
+    df_renamed = rename_columns(data_frame).withColumnRenamed("attributed_touch_time", "attibute_touch_time") \
+            .withColumn("user_id", get_user_id_for_all(col("event_value"), col('platform'))) \
             .where(
                 col("event_name").isin("af_registration", "af_login", "af_play_now", "af_play_game") 
                 & col("user_id").isNotNull() 
                 & ~col("user_id").isin("unknown", "", "null")
             )
+    col_cast_string = ["customer_user_id", "cost_value", "os_version"]
+    df_casted_string = cast_columns_to_string(df_renamed, col_cast_string)
 
     window_spec = Window.partitionBy("user_id").orderBy("order_value", "event_time")
-    df_final = (df_renamed.withColumn("path", input_file_name())
+    df_final = (df_casted_string.withColumn("path", input_file_name())
 
                   .withColumn("campaign_type",
                               when(col("path").contains("non-organic"), "non-organic").otherwise("organic"))
@@ -54,12 +56,11 @@ def trans_af_registration(config:dict, date: str, game_code: str):
                   .withColumn("state", get_state(col("country_code"), col("state")))
                   .withColumn("region", get_region(col("region")))
                   .withColumn("country_code", get_country(col("country_code")))
-                  .withColumn("customer_user_id", col("customer_user_id").cast(StringType()))
-                  .withColumn("os_version", col("os_version").cast(StringType()))
                   .withColumn("row_number", row_number().over(window_spec))
                   .where(col("row_number") == 1)
                   .drop("order_value", "path", "row_number")
                   .fillna(""))
+
     try:
         delta_table_user = DeltaTable.forPath(spark,
                                             f"s3a://{s3_cdp_bucket}/cdp/pub/{game_code}/af_user_registration_new")
@@ -79,8 +80,6 @@ def trans_af_registration(config:dict, date: str, game_code: str):
         .mode("append")
         .save(f"s3a://{s3_cdp_bucket}/cdp/pub/{game_code}/af_user_registration_new"))
 
-        delta_table_user = DeltaTable.forPath(spark,
-                                            f"s3a://{s3_cdp_bucket}/cdp/pub/{game_code}/af_web_user_registration")
 
     # Save data to clickhouse
     logging.info(f'Loading data to Clickhouse ...')
